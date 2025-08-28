@@ -39,9 +39,9 @@ Coffee koleksiyonuna şu şekilde bir doküman ekleyin:
   "userBirthday": "1990-05-15",
   "userRelationStatus": "evli",
   "userEmploymentStatus": "mühendis",
-  "photoUrls": [
-    "https://example.com/coffee-cup-1.jpg",
-    "https://example.com/coffee-cup-2.jpg"
+  "photoPaths": [
+    "coffee-images/cup1.jpg",
+    "coffee-images/cup2.jpg"
   ]
 }
 ```
@@ -54,7 +54,8 @@ Function çalıştıktan sonra doküman şu şekilde güncellenecek:
   "userBirthday": "1990-05-15",
   "userRelationStatus": "evli", 
   "userEmploymentStatus": "mühendis",
-  "photoUrls": [...],
+  "photoPaths": [...],
+  "status": "completed",
   "result": {
     "analysis": "Gemini AI'dan gelen kahve falı yorumu...",
     "processedAt": "2025-08-28T10:30:00.000Z",
@@ -69,7 +70,21 @@ Function çalıştıktan sonra doküman şu şekilde güncellenecek:
 - `userBirthday`: Doğum tarihi
 - `userRelationStatus`: Medeni durum
 - `userEmploymentStatus`: İş durumu
-- `photoUrls`: Kahve fincan fotoğraf URL'leri (opsiyonel)
+- `photoPaths`: Firebase Storage'daki kahve fincan fotoğraf yolları (opsiyonel)
+
+## Firebase Storage Kullanımı
+
+Fotoğrafları Firebase Storage'a yükleyin ve path'lerini `photoPaths` alanına ekleyin:
+
+```javascript
+// Örnek storage path'leri
+"photoPaths": [
+  "coffee-images/user123/cup1.jpg",
+  "coffee-images/user123/cup2.jpg"
+]
+```
+
+Function otomatik olarak bu path'lerden dosyaları download edip Gemini AI'ya gönderecek.
 
 ## Function'ı İzlemek İçin
 
