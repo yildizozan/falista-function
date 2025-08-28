@@ -24,8 +24,11 @@ const db = getFirestore();
 const storage = getStorage();
 
 // Initialize Gemini AI
-
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_MODEL = "gemini-2.5-flash";
+const PROMPT_FINE_TUNE = [
+  "Dil Türkçe olsun.",
+];
 
 const ai = new GoogleGenAI({apiKey: GEMINI_API_KEY});
 
@@ -96,13 +99,42 @@ export const processCoffeeWithGemini = onDocumentCreated(
       }
 
       // Get user information from the document
-      const userName = data?.userName || "kullanıcı";
-      const userBirthday = data?.userBirthday || "belirtilmemiş";
-      const userRelationStatus = data?.userRelationStatus ||
-        "belirtilmemiş";
-      const userEmploymentStatus = data?.userEmploymentStatus ||
-        "belirtilmemiş";
-      const photoPaths = data?.photoPaths || [];
+      const userName = data?.userName;
+      const userBirthday = data?.userBirthday;
+      const userRelationStatus = data?.userRelationStatus;
+      const userEmploymentStatus = data?.userEmploymentStatus;
+      const photoPaths = data?.photoPaths;
+
+      // Calculate user age from birthday
+      let userAge = null;
+      if (userBirthday) {
+        try {
+          const birthDate = new Date(userBirthday);
+          const today = new Date();
+          const age = today.getFullYear() - birthDate.getFullYear();
+          const monthDiff = today.getMonth() - birthDate.getMonth();
+
+          // Adjust age if birthday hasn't occurred this year
+          if (monthDiff < 0 ||
+              (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+            userAge = age - 1;
+          } else {
+            userAge = age;
+          }
+        } catch (error) {
+          logger.warn(
+            `Failed to calculate age from birthday: ${userBirthday}`, error
+          );
+          userAge = null;
+        }
+      }
+
+      // Log user information for debugging
+      logger.info(
+        `User info for ${docId}: userName=${userName}, userAge=${userAge}, ` +
+        `userRelationStatus=${userRelationStatus}, ` +
+        `userEmploymentStatus=${userEmploymentStatus}`
+      );
 
       // Create the content for Gemini
       const contentParts = [];
@@ -153,32 +185,37 @@ export const processCoffeeWithGemini = onDocumentCreated(
       const chunks = [];
 
       // Prepare prompt chunks
-      if (userName && userName !== "kullanıcı") {
+      if (userName) {
         chunks.push(`ismim ${userName}`);
       }
 
-      if (userBirthday && userBirthday !== "belirtilmemiş") {
-        chunks.push(`dogum tarihim ${userBirthday}`);
+      if (userAge !== null && userAge > 0) {
+        chunks.push(`yasim ${userAge}`);
       }
 
-      if (userRelationStatus && userRelationStatus !== "belirtilmemiş") {
+      if (userRelationStatus) {
         chunks.push(`medeni durumum ${userRelationStatus}`);
       }
 
-      if (userEmploymentStatus && userEmploymentStatus !== "belirtilmemiş") {
+      if (userEmploymentStatus) {
         chunks.push(`iş durumum ${userEmploymentStatus}`);
       }
 
       // Build the prompt from chunks
-      const promptText = chunks.length > 0 ?
-        chunks.join(", ") + ". Kahve falımı yorumla." :
+      let promptText = chunks.length > 0 ?
+        chunks.join(", ") + " kahve falımı yorumla." :
         "Kahve falımı yorumla.";
+
+      // Add fine tune instructions
+      if (PROMPT_FINE_TUNE.length > 0) {
+        promptText += " " + PROMPT_FINE_TUNE.join(" ");
+      }
 
       contentParts.push(promptText);
 
       // Generate content using Gemini
       const result = await ai.models.generateContent({
-        model: "gemini-2.0-flash-001",
+        model: GEMINI_MODEL,
         contents: createUserContent(contentParts),
       });
 
@@ -199,10 +236,11 @@ export const processCoffeeWithGemini = onDocumentCreated(
 
       // Update the document with the result
       await db.collection("coffee").doc(docId).update({
-        result: {
-          analysis: text,
+        result: text,
+        ai: {
+          promptText: promptText,
           processedAt: new Date().toISOString(),
-          source: "gemini-2.0-flash-001",
+          source: GEMINI_MODEL,
         },
         status: "completed",
       });
@@ -229,7 +267,7 @@ export const processCoffeeWithGemini = onDocumentCreated(
           error: "Failed to process with Gemini AI",
           errorDetails: error instanceof Error ? error.message : String(error),
           processedAt: new Date().toISOString(),
-          source: "gemini-2.0-flash-001",
+          source: GEMINI_MODEL,
         },
         status: "error",
       });
