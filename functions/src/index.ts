@@ -88,11 +88,6 @@ export const processCoffeeWithGemini = onDocumentCreated(
     try {
       logger.info(`Processing coffee document: ${docId}`);
 
-      // Set processing status
-      await db.collection("coffee").doc(docId).update({
-        status: "processing",
-      });
-
       // Check if API key is available
       if (!GEMINI_API_KEY) {
         throw new Error("Gemini API key is not configured");
